@@ -28,12 +28,12 @@ class SocialBot {
         { role: "system", content: `You are ${acct_name} and you are observing a social media website.` },
         { role: "assistant", content: `Hey, I'm ${acct_name} and I'm observing a social media website.` },
         { role: "assistant", content: `For context, ${persona}` },
-        { role: "user", content: "Can you either write a Post (OR) write a Reply depending on which is best fit according to the public timeline? Sometimes, it is important to post to add additional thoughts into the conversation, other times it is important to reply to respond to notable posts within the conversation. Write it in the style of a short twitter tweet."},    
+        { role: "user", content: "Can you either write a Post (OR) write a Reply depending on which is best fit according to the public timeline? Post to add additional thoughts into the conversation. Reply to respond to notable posts within the conversation. Use informal, conversational language typical of social media or messaging platforms, characterized by short, direct sentences, use of questions to provoke thought or responses. Convey a relaxed tone and facilitate rapid, interactive dialogue. One sentence posts. Do not use emojis or hashtags. Disagree with the other posts. The conversation centers around Prop 57 in California: This proposition is trying to decrease the maximum award on medical malpractice claims. Typically, medical groups support this proposition and lawyer groups are against this proposition."},    
     ];
     }
 
     /* MASTODON INPUT FUNCTIONS */
-    async viewPublicTimeline(limit = 4) {
+    async viewPublicTimeline(limit = 10) {
         // Define the parameters for the request, including the 'limit'.
         const params = {
             limit: limit,
