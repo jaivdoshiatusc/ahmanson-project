@@ -85,7 +85,7 @@ const tools = [
         type: "function",
         function: {
             name: "inspect",
-            description: "Get the context of a post, including all ancestors and descendants.",
+            description: "Get the context of a post, including all ancestors and descendants. Call inspect for multiple posts when needed.",
             parameters: {
                 type: "object",
                 properties: {
@@ -174,7 +174,7 @@ class SocialBot {
         this.latestPostTimestamp = null;
         this.timelineUpdates = []; // List to store timeline updates
 
-        this.postLimit = 5;
+        this.postLimit = 10;
         this.notificationLimit = 2;
 
         this.availableFunctions = {
@@ -332,6 +332,22 @@ class SocialBot {
             return `Error fetching status context: ${error}`;
         }
     }
+
+    async viewSinglePost(postId) {
+        return new Promise((resolve, reject) => {
+            this.M.get(`statuses/${postId}`, {}, (error, data) => {
+                if (error) {
+                    console.error(error);
+                    reject(error);
+                    this.log(`Error fetching post with ID ${postId}: ${error}`);
+                } else {
+                    this.log(`Fetched post with ID ${postId}`);
+                    resolve(data);
+                }
+            });
+        });
+    }
+
     /* END MASTODON VIEWING FUNCTIONS */
 
     /* FORMATTING */
@@ -411,8 +427,13 @@ class SocialBot {
         return formattedNotifications;
     }
 
-    handleStatusContext(context) {
+    handleStatusContext(context, cur_post) {
         let formattedContext = 'Context:\n';
+
+        const cur_post_content = cur_post.content.replace(/<[^>]*>/g, '').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
+        const cur_post_user = cur_post.account.username;
+
+        formattedContext += `Current Post: ${cur_post_content}\n User: ${cur_post_user}\n`;
 
         if (context.ancestors.length > 0) {
             formattedContext += 'Ancestors:\n';
@@ -564,7 +585,8 @@ class SocialBot {
                     return this.inspectedPosts[post_id];
                 }
                 const raw_context = await this.viewPostContext(post_id);
-                const formatted_context = this.handleStatusContext(raw_context);
+                const cur_post_info = await this.viewSinglePost(post_id);
+                const formatted_context = this.handleStatusContext(raw_context, cur_post_info);
 
                 this.log(`inspect: Context for post ${post_id}: ${formatted_context}`);
                 this.inspectedPosts[post_id] = formatted_context;
@@ -595,6 +617,7 @@ class SocialBot {
     /* RUNTIME */
 
     async initialize() { // pass for now
+
         return new Promise((resolve, reject) => {
             resolve("pass");
         });
@@ -636,7 +659,7 @@ class SocialBot {
         const formattedNotifications = this.handleNotifications(notifications);
         const new_notifications = {
             role: "user",
-            content: `The following are the latest notifications (replies to I):\n${formattedNotifications}`
+            content: `The following are the latest notifications (replies to me):\n${formattedNotifications}`
         };
         this.messages.push(new_notifications);
         this.log(new_notifications.content);
@@ -650,7 +673,7 @@ class SocialBot {
 
 
         const response = await this.openai.chat.completions.create({
-            model: "gpt-3.5-turbo-0125", // gpt-4-1106-preview
+            model: "gpt-4-1106-preview", // gpt-4-1106-preview   gpt-3.5-turbo-0125
             messages: this.messages,
             tools: tools,
             tool_choice: "auto", // auto is default, but we'll be explicit
