@@ -5,13 +5,15 @@ const SocialBot = require('./bot.js'); // Import your SocialBot class from a sep
 // Define base paths for personas, system prompts, and viewpoints
 const basePath = __dirname; // Assuming Sophisticated.js is at the root of your project
 const personaBasePath = `${basePath}/personas`;
-const systemPromptPath = `${basePath}/system_prompts/academic.txt`; // Example: using the social system prompt for all bots
+const systemPromptPath = `${basePath}/system_prompts/thinker.txt`; // Example: using the social system prompt for all bots
 const viewpointPath = `${basePath}/viewpoints/prop57.txt`; // Example: using the prop57 viewpoint for all bots
 
 // Create an array to store the SocialBot instances
 const bots = [];
 
 // Manually Initialize Bots with file paths for persona, system prompt, and viewpoint
+
+
 const Paul = new SocialBot(
     "paul",
     process.env.PAUL_CLIENT_KEY,
@@ -90,7 +92,7 @@ function delay(ms) {
 async function performActions() {
     for (const bot of bots.reverse()) {
         await bot.runConversation().then(console.log).catch(console.error);
-        const baseDelay = 45 * 1000; // Adjusted to 20 seconds for example
+        const baseDelay = 45 * 1000; 
         const randomizedDelay = baseDelay * (0.5 + Math.random()); // Randomize delay by 50% +-
         await delay(randomizedDelay);
     }

@@ -48,7 +48,25 @@ const tools = [
         },
     },
     },
+    // {
+    // type: "function",
+    // function: {
+    //     name: "think",
+    //     description: "Think about the presented conversation and form an informed opinion on the subject.",
+    //     parameters: {
+    //         type: "object",
+    //         properties: {
+    //             content: {
+    //                 type: "string",
+    //                 description: "Your own thinking about the presented conversation.",
+    //             },
+    //         },
+    //         required: ["content"],
+    //     },
+    // },
+    // },
 ];
+
 class SocialBot {
     constructor(acct_name, clientKey, clientSecret, accessToken, apiKey, personaFilePath, systemFilePath, viewpointFilePath) {
         // Initialize the Mastodon API client.
@@ -78,7 +96,7 @@ class SocialBot {
         
 
         this.messages = [
-            { role: "system", content: `${this.persona} ${this.system} ${this.viewpoint}`},    
+            { role: "system", content: `${this.persona} ${this.viewpoint} ${this.system} `},
         ];
 
         this.latestPostId = null; // Store the highest post ID seen
@@ -86,6 +104,11 @@ class SocialBot {
         this.timelineUpdates = []; // List to store timeline updates
 
         this.postLimit = 15;
+
+        this.availableFunctions = {
+            set_post: this.setPost.bind(this),
+            set_reply: this.setReply.bind(this),
+        }; 
 
         // Log initial parameters
         this.log(`Initial parameters: acct_name: ${this.acct_name}, personaFilePath: ${personaFilePath}, systemFilePath: ${systemFilePath}, viewpointFilePath: ${viewpointFilePath}`);
@@ -97,8 +120,11 @@ class SocialBot {
             fs.mkdirSync(logFolder);
         }
         const date = new Date();
-        const formattedDate = `${date.getDate()}-${date.getMonth() + 1}-${date.getHours()}-${date.getMinutes()}-${date.getSeconds()}`;
-        this.logFilePath = path.join(logFolder, `${acct_name}-${formattedDate}.log`);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0'); // getMonth() is zero-based
+        const day = String(date.getDate()).padStart(2, '0');
+        const formattedDate = `${year}-${month}-${day}--${date.getHours()}-${date.getMinutes()}`;
+        this.logFilePath = path.join(logFolder, `${formattedDate}-${acct_name}.log`);
         this.log(`Bot initialized with account name: ${acct_name}`);
     }
 
@@ -147,6 +173,8 @@ class SocialBot {
             });
         });
     }
+
+        
     
 
     handlePublicTimeline(timelineUpdates, limit = 10) {
@@ -217,7 +245,8 @@ class SocialBot {
     /* MASTODON OUTPUT FUNCTIONS */
     async setPost(content) {
         if (content.length > 500) {
-            content = content.slice(0, 500);
+            content = content.slice(0, 499);
+            this.log(`Clipped reply content to 499 characters.`);
         }
 
         const params = {
@@ -233,10 +262,9 @@ class SocialBot {
                     reject(error);
                     this.log(`Error posting status: ${error}`);
                 } else {
-                    console.log(`ID: ${data.id} and timestamp: ${data.created_at}`);
-                    console.log(`${this.acct_name} posted ${text_content}`);
-                    this.log(`${this.acct_name} posted: ${text_content}`);
-                    resolve(`${this.acct_name} posted ${text_content}`);
+                    console.log(`Expressed: You (${this.acct_name}) posted: ${text_content}`);
+                    this.log(`Expressed: You (${this.acct_name}) posted: ${text_content}`);
+                    resolve(`Expressed: You (${this.acct_name}) posted: ${text_content}`);
                 }
             });
         });
@@ -245,7 +273,8 @@ class SocialBot {
     async setReply(content, reply_acct_name, post_id) {
         // Clip the response to 500 characters
         if (content.length > 500) {
-            content = content.slice(0, 500);
+            content = content.slice(0, 499);
+            this.log(`Clipped reply content to 499 characters.`);
         }
 
         const params = {
@@ -263,9 +292,9 @@ class SocialBot {
                     this.log(`Error replying to post: ${error}`);
                 } else {
                     console.log(`ID: ${data.id} and timestamp: ${data.created_at}`);
-                    console.log(`${this.acct_name} replied to ${reply_acct_name} with ${text_content}`);
-                    this.log(`${this.acct_name} replied to ${reply_acct_name} with ${text_content}`);
-                    resolve(`${this.acct_name} replied to ${reply_acct_name} with ${text_content}`);
+                    console.log(`Expressed: You (${this.acct_name}) replied to ${reply_acct_name} with ${text_content}`);
+                    this.log(`Expressed: You (${this.acct_name}) replied to ${reply_acct_name} with ${text_content}`);
+                    resolve(`Expressed: You (${this.acct_name}) replied to ${reply_acct_name} with ${text_content}`);
                 }
             });
         });
@@ -293,53 +322,58 @@ class SocialBot {
             tool_choice: "auto", // auto is default, but we'll be explicit
         });
         const responseMessage = response.choices[0].message;
+        this.messages.push(responseMessage);
+        if (responseMessage.content) {
+            this.log(`Thought: ${responseMessage.content}`);
+        } else {
+            this.log(`Thought: none`);
+        }
     
         // Step 2: check if the model wanted to call a function
         const toolCalls = responseMessage.tool_calls;
-        if (responseMessage.tool_calls) {
-            // Step 3: call the function
-            // Note: the JSON response may not always be valid; be sure to handle errors
-            const availableFunctions = {
-                set_post: this.setPost.bind(this),
-                set_reply: this.setReply.bind(this),
-            }; // only one function in this example, but you can have multiple
-            this.messages.push(responseMessage); // extend conversation with assistant's reply
-            for (const toolCall of toolCalls) {
-                const functionName = toolCall.function.name;
-                const functionToCall = availableFunctions[functionName];
-                const functionArgs = JSON.parse(toolCall.function.arguments);
-            
-                try {
-                    // Declare a variable to store the resolved value
-                    let functionResponseValue;
-            
-                    switch (functionName) {
-                        case 'set_post':
-                            // Await the Promise and get the actual response
-                            functionResponseValue = await functionToCall(functionArgs.content);
-                            break;
-                        case 'set_reply':
-                            // Await the Promise and get the actual response
-                            functionResponseValue = await functionToCall(functionArgs.content, functionArgs.reply_acct_name, functionArgs.post_id);
-                            break;
-                    }
-            
-                    this.messages.push({
-                        tool_call_id: toolCall.id,
-                        role: "tool",
-                        name: functionName,
-                        content: functionResponseValue, // Use the resolved value
-                    });
-                    this.log(`Function called successfully: ${functionName}`);
-            
-                } catch (error) {
-                    console.error(`Error in processing tool call or fetching public timeline:`, error);
-                    this.log(`Error in processing tool call or fetching public timeline: ${error}`);
-                }
-            
-            }  
-             
+        if (!toolCalls) {
+            return;
         }
+        // Step 3: call the function
+        // Note: the JSON response may not always be valid; be sure to handle errors
+        for (const toolCall of toolCalls) {
+            const functionName = toolCall.function.name;
+            const functionToCall = this.availableFunctions[functionName];
+            const functionArgs = JSON.parse(toolCall.function.arguments);
+        
+            try {
+                // Declare a variable to store the resolved value
+                let functionResponseValue;
+        
+                switch (functionName) {
+                    case 'set_post':
+                        // Await the Promise and get the actual response
+                        functionResponseValue = await functionToCall(functionArgs.content);
+                        break;
+                    case 'set_reply':
+                        // Await the Promise and get the actual response
+                        functionResponseValue = await functionToCall(functionArgs.content, functionArgs.reply_acct_name, functionArgs.post_id);
+                        break;
+                    // case 'think':
+                    //     functionResponseValue = `Thought: ${functionArgs.content}`;
+                    //     break;
+                }
+        
+                this.messages.push({
+                    tool_call_id: toolCall.id,
+                    role: "tool",
+                    name: functionName,
+                    content: functionResponseValue, // Use the resolved value
+                });
+                this.log(`Function called successfully: ${functionName}`);
+        
+            } catch (error) {
+                console.error(`Error in processing tool call or fetching public timeline:`, error);
+                this.log(`Error in processing tool call or fetching public timeline: ${error}`);
+            }
+        
+        }  
+
     }
         
 }
