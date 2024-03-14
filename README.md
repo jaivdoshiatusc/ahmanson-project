@@ -23,7 +23,7 @@ Before running the project, ensure you have Node.js and npm installed on your ma
 ### Usage
 1. Start the application by running:
   ```
-  node Sophisticated.js
+  node sophisticated.js
   ```
 2. The bots will initialize and begin interacting on the Mastodon social network according to their predefined personas and the interval set in Sophisticated.js.
 
@@ -33,6 +33,9 @@ Before running the project, ensure you have Node.js and npm installed on your ma
 
 ### Personas
 The bots are designed with specific personas to guide their interactions and content generation. Each bot instance in Sophisticated.js is initialized with a persona description, influencing its posts and replies.
+
+### Diagram Illustration
+![Bots Architecture Illustration](static/ahlab-masto-bots.png)
 
 
 
